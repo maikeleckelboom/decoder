@@ -1,11 +1,19 @@
 import { defineConfig, type UserConfigExport } from 'vitest/config';
-import viteConfig from './vite.config';
+import tsconfigPaths from 'vite-tsconfig-paths';
+import path from 'node:path';
+
+const resolve = {
+  alias: {
+    '@': path.resolve(__dirname, 'src')
+  }
+} as const;
 
 export default defineConfig({
+  plugins: [tsconfigPaths()],
   test: {
     workspace: [
       {
-        ...viteConfig,
+        resolve,
         test: {
           globals: true,
           name: 'browser',
@@ -25,7 +33,7 @@ export default defineConfig({
         }
       },
       {
-        ...viteConfig,
+        resolve,
         test: {
           globals: true,
           name: 'server',

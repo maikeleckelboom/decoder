@@ -9,5 +9,5 @@ export type BrowserInput =
   | ImageBitmapSource;
 
 export interface BrowserOptions extends CommonDecoderOptions {
-  decoder?: 'offscreen-canvas';
+  decoder?: 'canvas';
 }
