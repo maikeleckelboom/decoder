@@ -21,7 +21,6 @@ const isNodeReadable = (input: unknown): input is Readable =>
 const isWebReadableStream = (input: unknown): input is ReadableStream =>
   typeof ReadableStream !== 'undefined' && input instanceof ReadableStream;
 
-// Optimized stream conversion utilities
 async function webStreamToNodeBuffer(stream: ReadableStream): Promise<Buffer> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];

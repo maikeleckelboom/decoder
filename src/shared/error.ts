@@ -1,49 +1,30 @@
-export enum ErrorCode {
-  INVALID_INPUT = 'INVALID_INPUT',
-  DECODE_FAILED = 'DECODE_FAILED',
-  MEMORY_EXHAUSTED = 'MEMORY_EXHAUSTED',
-  TIMEOUT = 'TIMEOUT',
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  UNSUPPORTED_FORMAT = 'UNSUPPORTED_FORMAT'
-}
+export class HttpError extends Error {
+  public readonly response: Response;
+  public readonly status: number;
+  public readonly statusText: string;
+  public readonly url: string;
 
-export class PixeliftError extends Error {
-  constructor(
-    public code: ErrorCode,
-    message: string,
-    public recoverable: boolean = false,
-    public context?: Record<string, unknown>
-  ) {
+  constructor(response: Response) {
+    const message = `HTTP error ${response.status} (${response.statusText}) for URL: ${response.url}`;
     super(message);
-    this.name = 'PixeliftError';
+    this.name = 'HttpError';
+    this.response = response;
+    this.status = response.status;
+    this.statusText = response.statusText;
+    this.url = response.url;
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, HttpError);
+    }
   }
 }
 
-export const createError = {
-  invalidInput: (message: string, context?: Record<string, unknown>): PixeliftError => {
-    return new PixeliftError(ErrorCode.INVALID_INPUT, message, true, context);
-  },
-
-  decodeFailed: (message: string, context?: Record<string, unknown>): PixeliftError => {
-    return new PixeliftError(ErrorCode.DECODE_FAILED, message, false, context);
-  },
-
-  memoryExhausted: (message: string, context?: Record<string, unknown>): PixeliftError => {
-    return new PixeliftError(ErrorCode.MEMORY_EXHAUSTED, message, false, context);
-  },
-
-  timeout: (message: string): PixeliftError => {
-    return new PixeliftError(ErrorCode.TIMEOUT, message, false);
-  },
-
-  networkError: (message: string, context?: Record<string, unknown>): PixeliftError => {
-    return new PixeliftError(ErrorCode.NETWORK_ERROR, message, true, context);
-  },
-
-  unsupportedFormat: (
-    message: string,
-    context?: Record<string, unknown>
-  ): PixeliftError => {
-    return new PixeliftError(ErrorCode.UNSUPPORTED_FORMAT, message, false, context);
+export class FetchAbortedError extends Error {
+  constructor(message: string = 'Request aborted', options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'FetchAbortedError';
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, FetchAbortedError);
+    }
   }
-} as const;
+}
