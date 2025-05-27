@@ -53,17 +53,20 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maikeleckelboom/pixelift.git"
+    "buffer": "git+https://github.com/maikeleckelboom/pixelift.git"
   },
   "homepage": "https://github.com/maikeleckelboom/pixelift#readme",
   "bugs": {
-    "url": "https://github.com/maikeleckelboom/pixelift/issues"
+    "buffer": "https://github.com/maikeleckelboom/pixelift/issues"
   },
   "scripts": {
     "dev": "vitest --watch",
     "test": "vitest --run",
     "test:browser": "vitest --project browser",
     "test:server": "vitest --project server",
+    "bench": "vitest --run bench --reporter verbose",
+    "bench:server": "vitest --project server --run bench --reporter verbose",
+    "bench:browser": "vitest --project browser --run bench --reporter verbose",
     "format": "prettier --write .",
     "lint": "eslint 'src/**/*.ts' --max-warnings=0",
     "lint:fix": "eslint 'src/**/*.ts' --fix"

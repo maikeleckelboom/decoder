@@ -71,7 +71,6 @@ function determineInputType(input: ServerInput): string | null {
   return null;
 }
 
-// Core processing logic with enhanced safety
 async function processWithSharp(pipeline: sharp.Sharp): Promise<PixelData> {
   const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
 
@@ -90,7 +89,6 @@ async function processWithSharp(pipeline: sharp.Sharp): Promise<PixelData> {
   };
 }
 
-// Refactored main decode function
 export async function decode(
   input: ServerInput,
   options?: ServerOptions

@@ -8,7 +8,7 @@ export interface PixelData {
 }
 
 export interface CommonDecoderOptions {
-  mimeType?: string;
+  [key: string]: any;
 }
 
 export type PixeliftInput = BrowserInput | ServerInput;

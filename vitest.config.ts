@@ -18,6 +18,10 @@ export default defineConfig({
           globals: true,
           name: 'browser',
           include: ['test/browser/**', 'test/shared/**'],
+          exclude: ['test/browser/**/*.bench.ts'],
+          benchmark: {
+            include: ['test/browser/**/*.bench.ts']
+          },
           environment: 'browser',
           browser: {
             provider: 'playwright',
@@ -38,7 +42,11 @@ export default defineConfig({
           globals: true,
           name: 'server',
           include: ['test/server/**', 'test/shared/**'],
-          environment: 'node'
+          exclude: ['test/server/**/*.bench.ts'],
+          environment: 'node',
+          benchmark: {
+            include: ['test/server/**/*.bench.ts']
+          }
         }
       }
     ]

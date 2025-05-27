@@ -28,3 +28,10 @@ export class FetchAbortedError extends Error {
     }
   }
 }
+
+export class BufferOverflowError extends Error {
+  constructor(maxSize: number, actualSize: number) {
+    super(`Buffer size exceeded: ${actualSize} > ${maxSize}`);
+    this.name = 'BufferOverflowError';
+  }
+}

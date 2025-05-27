@@ -1,88 +1,108 @@
 import type * as SharpModule from 'sharp';
 
-// Augment Sharp type to optionally support __esModule interop
-declare module 'sharp' {
-  interface Sharp {
-    __esModule?: boolean;
-  }
-}
-
 export type SharpConstructor = typeof SharpModule.default;
 
-// Developer-friendly error message for missing Sharp installation
-const SHARP_IS_MISSING_ERROR_MESSAGE = [
-  '❌ Failed to load the required `sharp` package for server-side image processing.',
-  '',
-  '💡 To fix this, install `sharp` with one of the following commands:',
-  '   - `npm install sharp`',
-  '   - `pnpm add sharp`',
-  '   - `yarn add sharp`',
-  '   - `bun add sharp`',
-  '',
-  '⚠️ Pixelift server features depend on `sharp`.',
-  '   It looks like it was not installed or could not be found.',
-  '   This may happen if it was skipped during Pixelift installation (it’s optional).'
-] as const;
+const SHARP_IS_MISSING_ERROR_MESSAGE = `
+❌ Failed to load the required \`sharp\` package for server-side image processing.
 
-class SharpLoaderError extends Error {
-  static readonly MISSING_MESSAGE = SHARP_IS_MISSING_ERROR_MESSAGE.join('\n');
+💡 To fix this, install \`sharp\` with one of the following commands:
+   - \`npm install sharp\`
+   - \`pnpm add sharp\`
+   - \`yarn add sharp\`
+   - \`bun add sharp\`
 
-  constructor(message: string, options?: ErrorOptions) {
+⚠️ Pixelift server features depend on \`sharp\`.
+   It looks like it was not installed or could not be found.
+   This may happen if it was skipped during Pixelift installation (it's optional).
+
+📝 Additional troubleshooting:
+   - Ensure Node.js version matches sharp's requirements (v18+ recommended)
+   - Verify build tools for native extensions are installed
+   - Check for conflicting dependencies in your package.json
+`.trim();
+
+const GENERIC_IMPORT_ERROR_MESSAGE = (error: string) =>
+  `
+❌ Unexpected error while loading \`sharp\` module:
+
+${error}
+
+💡 Please check:
+   1. File system permissions
+   2. Network connectivity if using corporate VPN
+   3. Antivirus/firewall settings blocking module installation
+   4. Disk space availability
+`.trim();
+
+export class SharpLoaderError extends Error {
+  readonly cause?: Error;
+
+  constructor(message: string, options: ErrorOptions = {}) {
     super(message, options);
     this.name = 'SharpLoaderError';
+    if (options.cause instanceof Error) {
+      this.cause = options.cause;
+    }
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, SharpLoaderError);
+    }
   }
 }
 
 let sharpPromise: Promise<SharpConstructor> | null = null;
 
 /**
- * Dynamically imports the `sharp` module and ensures it's a valid constructor.
- * Caches the result to avoid repeated imports.
+ * Dynamically imports and validates the `sharp` module with proper error handling
+ * and caching mechanism. Retries failed imports on subsequent calls.
+ *
+ * @throws {SharpLoaderError} When sharp cannot be loaded, with actionable error messages
+ *
+ * @example
+ * try {
+ *   const sharp = await importSharp();
+ * } catch (error) {
+ *   if (SharpLoaderError.isMissingError(error)) {
+ *     // Show installation instructions
+ *   }
+ * }
  */
 export async function importSharp(): Promise<SharpConstructor> {
   if (sharpPromise) return sharpPromise;
 
-  sharpPromise = new Promise(async (resolve, reject) => {
+  sharpPromise = (async () => {
     try {
       const sharpModule = await import('sharp');
 
-      // Handle possible interop format
-      const sharpExport =
-        sharpModule.default?.constructor === Function
-          ? (sharpModule as typeof SharpModule).default
-          : (sharpModule as typeof SharpModule);
-
-      if (typeof sharpExport !== 'function') {
-        throw new SharpLoaderError(
-          'Invalid `sharp` export — expected constructor function.\n' +
-            'Check your Sharp installation and module resolution.'
-        );
-      }
-
-      resolve(sharpExport as SharpConstructor);
-    } catch (error) {
+      return sharpModule.default as SharpConstructor;
+    } catch (error: unknown) {
       sharpPromise = null;
 
-      if (error instanceof SharpLoaderError) {
-        reject(error);
-        return;
+      if (isModuleNotFoundError(error)) {
+        throw new SharpLoaderError(SHARP_IS_MISSING_ERROR_MESSAGE, {
+          cause: error instanceof Error ? error : undefined
+        });
       }
 
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        (error as any).code === 'MODULE_NOT_FOUND'
-      ) {
-        reject(new SharpLoaderError(SharpLoaderError.MISSING_MESSAGE, { cause: error }));
-        return;
-      }
-
-      const message = error instanceof Error ? error.message : String(error);
-      reject(
-        new SharpLoaderError(`Sharp initialization failed: ${message}`, { cause: error })
-      );
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new SharpLoaderError(GENERIC_IMPORT_ERROR_MESSAGE(errorMessage), {
+        cause: error instanceof Error ? error : undefined
+      });
     }
+  })();
+
+  sharpPromise.catch(() => {
+    sharpPromise = null;
   });
 
   return sharpPromise;
+}
+
+function isModuleNotFoundError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    error.code === 'MODULE_NOT_FOUND' &&
+    error.message.includes('sharp')
+  );
 }

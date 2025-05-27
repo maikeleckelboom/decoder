@@ -1,36 +1,18 @@
-import { FetchAbortedError, HttpError } from '@/shared/error.ts';
+import { BufferOverflowError, FetchAbortedError, HttpError } from '@/shared/error.ts';
 import { throwIfAborted } from '@/shared/abort.ts';
 import { isValidUrl } from '@/shared/guard.ts';
 
-/**
- * Information about the download progress.
- */
 export interface ProgressInfo {
-  /** Bytes loaded so far. */
   loaded: number;
-  /** Total bytes to load (if known, otherwise 0). */
   total: number;
-  /** Percentage of download completion (0-100), or null if total is unknown. */
   percent: number | null;
 }
 
-/**
- * Options for `fetchWithControls`.
- */
-export interface FetchWithControlsOptions extends RequestInit {
-  /**
-   * Callback to be invoked with progress updates.
-   * Note: Errors in this callback will abort the entire fetch operation.
-   */
+export interface FetchWithControlsOptions {
   onProgress?: (info: ProgressInfo) => void;
-  /**
-   * Maximum time (ms) between progress updates (default: 100ms)
-   */
   progressInterval?: number;
-  /**
-   * Maximum allowed buffer size in bytes before aborting (default: 10MB)
-   */
   maxBufferSize?: number;
+  request?: RequestInit;
 }
 
 const DEFAULT_HEADERS: HeadersInit = {
@@ -39,8 +21,8 @@ const DEFAULT_HEADERS: HeadersInit = {
 
 const DEFAULT_FETCH_OPTIONS: Omit<RequestInit, 'headers' | 'signal' | 'body' | 'method'> =
   {};
-const DEFAULT_PROGRESS_INTERVAL = 100; // ms
-const DEFAULT_MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
+const DEFAULT_PROGRESS_INTERVAL = 100;
+const DEFAULT_MAX_BUFFER_SIZE = 10 * 1024 * 1024;
 
 async function fetchWithErrorHandling(
   input: RequestInfo | URL,
@@ -117,20 +99,19 @@ function reportProgress(
   });
 }
 
-export async function fetchWithControls(
+export async function controlledFetch(
   input: RequestInfo | URL,
   options: FetchWithControlsOptions = {}
 ): Promise<Response> {
   const {
     onProgress,
-    signal: providedSignal,
     progressInterval = DEFAULT_PROGRESS_INTERVAL,
     maxBufferSize = DEFAULT_MAX_BUFFER_SIZE,
-    ...fetchOpts
+    request: fetchRequestInit = {}
   } = options;
 
-  const abortController = providedSignal ? undefined : new AbortController();
-  const signal = providedSignal ?? abortController!.signal;
+  const abortController = fetchRequestInit.signal ? undefined : new AbortController();
+  const signal = (fetchRequestInit.signal ?? abortController?.signal) as AbortSignal;
   throwIfAborted(signal);
 
   if (typeof input === 'string' && !isValidUrl(input)) {
@@ -139,16 +120,15 @@ export async function fetchWithControls(
     throw error;
   }
 
-  const headers = new Headers({ ...DEFAULT_HEADERS, ...fetchOpts.headers });
-  const fetchOptions: RequestInit = {
-    ...DEFAULT_FETCH_OPTIONS,
-    ...fetchOpts,
-    headers,
-    signal
-  };
+  const headers = new Headers({ ...DEFAULT_HEADERS, ...fetchRequestInit.headers });
 
   try {
-    const response = await fetchWithErrorHandling(input, fetchOptions);
+    const response = await fetchWithErrorHandling(input, {
+      ...DEFAULT_FETCH_OPTIONS,
+      ...fetchRequestInit,
+      headers,
+      signal
+    });
 
     if (!onProgress || !response.body) return response;
 
@@ -170,7 +150,7 @@ export async function fetchWithControls(
           controller,
           progressInterval
         ).catch(() => {
-          /* Handled in error propagation */
+          /* Intentional no-op */
         });
       },
 
@@ -178,18 +158,22 @@ export async function fetchWithControls(
         try {
           const { done, value } = await bodyReader.read();
 
-          if (done) {
+          if (done || !value) {
             controller.close();
             return;
           }
 
           bufferSize += value.byteLength;
+
           if (bufferSize > maxBufferSize) {
-            throw new Error(`Buffer size exceeded ${maxBufferSize} bytes`);
+            const error = new BufferOverflowError(maxBufferSize, bufferSize);
+            controller.error(error);
+            abortController?.abort(error);
+            return;
           }
 
           controller.enqueue(value);
-          bufferSize -= value.byteLength; // Reset after enqueue
+          bufferSize -= value.byteLength;
         } catch (error) {
           controller.error(error);
           abortController?.abort(error);
@@ -202,13 +186,14 @@ export async function fetchWithControls(
           progressStream.cancel(reason),
           bodyStream.cancel(reason)
         ]);
+        bodyReader?.releaseLock();
         abortController?.abort(reason);
       }
     });
 
     return new Response(managedStream, response);
   } catch (error) {
-    handleFetchError(error, abortController, signal);
+    return handleFetchError(error, abortController, signal!);
   }
 }
 

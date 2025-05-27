@@ -1,4 +1,5 @@
 import type { CommonDecoderOptions } from '../types';
+import type { FetchWithControlsOptions } from '@/browser/utils/fetch.ts';
 
 export type BrowserInput =
   | string
@@ -8,6 +9,6 @@ export type BrowserInput =
   | SVGElement
   | ImageBitmapSource;
 
-export interface BrowserOptions extends CommonDecoderOptions {
+export interface BrowserOptions extends CommonDecoderOptions, FetchWithControlsOptions {
   decoder?: 'canvas';
 }
