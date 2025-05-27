@@ -5,6 +5,6 @@ export async function pixelift(
   input: PixeliftInput,
   options?: PixeliftOptions
 ): Promise<PixelData> {
-  const decoder = await resolveDecoderForInput(input);
-  return decoder.decode(input);
+  const decoder = await resolveDecoderForInput(input, options);
+  return decoder.decode(input, options);
 }

@@ -1,20 +1,21 @@
 import type { PixelData } from '@/types';
 import { getRegisteredDecoders, registerDecoder } from './registry';
+import { getCurrentEnvironment } from '@/shared/env.ts';
+
+export type PixeliftEnvironment = 'browser' | 'server';
 
 export interface Decoder<TSource = unknown, TOptions = unknown, TResult = PixelData> {
   name: string;
   priority: number;
   metadata?: Record<string, any>;
   autoRegister?: boolean;
-
-  /** Checks if current environment supports this decoder */
-  isEnvSupported?(): boolean;
+  env?: PixeliftEnvironment | PixeliftEnvironment[];
 
   /**
    * Determine if this decoder supports the given input.
    * Input could be MIME type string or raw data.
    */
-  isInputSupported(input: TSource): Promise<boolean> | boolean;
+  canDecode(input: TSource, type?: string): Promise<boolean> | boolean;
 
   /** Decode the input */
   decode(source: TSource, options?: TOptions): Promise<TResult>;
@@ -25,48 +26,59 @@ export function defineDecoder<
   TOptions = unknown,
   TResult extends PixelData = PixelData
 >(decoder: Decoder<TSource, TOptions, TResult>): Decoder<TSource, TOptions, TResult> {
-  const { autoRegister = true } = decoder;
+  const { autoRegister = false } = decoder;
   if (autoRegister) registerDecoder(decoder);
   return decoder;
 }
 
-/**
- * Attempts to resolve a decoder for the given input or optional type string.
- * Returns the highest-priority decoder that supports the input and current environment.
- *
- * @throws If no suitable decoder is found.
- * @param input
- */
 export async function resolveDecoderForInput<TSource>(
-  input: TSource
+  input: TSource,
+  options?: { type?: string; [key: string]: any }
 ): Promise<Decoder<TSource>> {
-  const decoders = getRegisteredDecoders();
+  const decoders = getRegisteredDecoders() as Decoder<TSource, any, any>[];
 
   if (decoders.length === 0) {
     throw new Error('Decoder registry is empty — no decoders have been registered.');
   }
 
   const failures: string[] = [];
+  const candidates: Decoder<TSource, any, any>[] = [];
 
+  // Check each decoder for environment support and input support
   for (const decoder of decoders) {
-    if (decoder.isEnvSupported && !decoder.isEnvSupported()) {
-      failures.push(`[${decoder.name}]: environment unsupported`);
+    if (typeof (decoder as any).isEnvSupported === 'function') {
+      if (!(decoder as any).isEnvSupported()) {
+        failures.push(`[${decoder.name}] environment not supported`);
+        continue;
+      }
+    }
+
+    let canDecodeResult: boolean;
+    try {
+      const result = decoder.canDecode(input, options?.type);
+      canDecodeResult = result instanceof Promise ? await result : result;
+    } catch (err) {
+      failures.push(
+        `[${decoder.name}] threw error during canDecode: ${(err as Error).message}`
+      );
       continue;
     }
 
-    try {
-      const supported = await (decoder as Decoder<TSource>).isInputSupported(input);
-      if (supported) return decoder as Decoder<TSource>;
-      failures.push(`[${decoder.name}]: input not supported`);
-    } catch (err) {
-      failures.push(
-        `[${decoder.name}]: error in isInputSupported - ${(err as Error).message}`
-      );
+    if (canDecodeResult) {
+      candidates.push(decoder);
+    } else {
+      failures.push(`[${decoder.name}] cannot decode input`);
     }
   }
 
-  throw new Error(
-    `No suitable decoder found for input: ${typeof input}\n` +
-      `Failed decoders:\n${failures.join('\n')}`
-  );
+  if (candidates.length === 0) {
+    throw new Error(
+      `No suitable decoder found for input type: ${typeof input}\n` +
+        `Failures:\n${failures.join('\n')}`
+    );
+  }
+
+  candidates.sort((a, b) => b.priority - a.priority);
+
+  return candidates[0] as Decoder<TSource>;
 }

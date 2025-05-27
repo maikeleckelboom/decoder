@@ -1,4 +1,5 @@
 import type { Decoder } from '@/shared/decoder';
+import { getCurrentEnvironment } from '@/shared/env.ts';
 
 export const MIN_PRIORITY = 0 as const;
 export const MAX_PRIORITY = 1000 as const;
@@ -7,22 +8,6 @@ let locked = false;
 let freezeOnRegister = false;
 
 const decoders: Decoder[] = [];
-
-/**
- * Locks the decoder registry to prevent further mutations.
- * Recommended for production usage to avoid dynamic behavior.
- */
-export function lockDecoderRegistry(): void {
-  locked = true;
-}
-
-/**
- * Configures whether registered decoders should be frozen (immutable).
- * Recommended to be true in production for robustness.
- */
-export function enableDecoderFreezing(): void {
-  freezeOnRegister = true;
-}
 
 /**
  * Registers a decoder with validation and ordered insertion.
@@ -39,15 +24,13 @@ export function registerDecoder<D extends Decoder>(decoder: D): Readonly<D> {
     throw new TypeError(`Invalid decoder: expected object, got ${typeof decoder}`);
   }
 
-  const { name, priority, decode, isInputSupported, isEnvSupported } = decoder;
+  const { name, priority, decode, canDecode } = decoder;
   const normalizedName = name?.trim().toLowerCase();
 
-  // Validate name
   if (!name || name.trim() === '') {
     throw new TypeError(`Decoder must have a non-empty string 'name' property`);
   }
 
-  // Validate priority
   if (!Number.isFinite(priority)) {
     throw new TypeError(
       `Decoder '${name}' requires finite number priority, got ${String(priority)}`
@@ -59,20 +42,13 @@ export function registerDecoder<D extends Decoder>(decoder: D): Readonly<D> {
     );
   }
 
-  // Validate required methods
   if (typeof decode !== 'function') {
     throw new TypeError(`Decoder '${name}' must implement decode() function`);
   }
-  if (typeof isInputSupported !== 'function') {
+  if (typeof canDecode !== 'function') {
     throw new TypeError(`Decoder '${name}' must implement isTypeSupported() function`);
   }
 
-  // Validate optional methods
-  if (isEnvSupported && typeof isEnvSupported !== 'function') {
-    throw new TypeError(`Decoder '${name}' isEnvSupported must be a function when present`);
-  }
-
-  // Check for case-insensitive name conflicts
   const exists = decoders.some((d) => d.name.trim().toLowerCase() === normalizedName);
   if (exists) {
     const existing = decoders.find((d) => d.name.trim().toLowerCase() === normalizedName)!;
@@ -82,10 +58,8 @@ export function registerDecoder<D extends Decoder>(decoder: D): Readonly<D> {
     );
   }
 
-  // Optionally freeze the decoder
   const finalDecoder = freezeOnRegister ? Object.freeze(decoder) : decoder;
 
-  // Priority-ordered insertion
   const insertIndex = decoders.findIndex((d) => d.priority < priority);
   if (insertIndex === -1) {
     decoders.push(finalDecoder);
@@ -127,42 +101,37 @@ export function clearDecoderRegistry(): void {
   freezeOnRegister = false;
 }
 
-/**
- * Returns a map of all registered decoders keyed by normalized (lowercase) name.
- * Useful for fast lookup without repeated iteration.
- */
-export function getDecoderMapByName(): Record<string, Decoder> {
-  const map: Record<string, Decoder> = {};
-  for (const decoder of decoders) {
-    map[decoder.name.trim().toLowerCase()] = decoder;
-  }
-  return map;
-}
-
-/**
- * Prints a table of all registered decoders to the console.
- * Useful for debugging in dev/test environments.
- */
 export function printDecoderRegistry(): void {
   if (decoders.length === 0) {
     console.log('🧩 Decoder Registry is empty.');
     return;
   }
 
+  const currentEnv = getCurrentEnvironment();
+
   console.table(
-    decoders.map((d, i) => ({
-      '#': i + 1,
-      Name: d.name,
-      Priority: d.priority,
-      'Env-Supported':
-        typeof d.isEnvSupported === 'function' ? d.isEnvSupported() : 'unknown',
-      Methods: [
-        typeof d.decode === 'function' ? 'decode' : '',
-        typeof d.isInputSupported === 'function' ? 'isInputSupported' : '',
-        typeof d.isEnvSupported === 'function' ? 'isEnvSupported' : ''
-      ]
-        .filter(Boolean)
-        .join(', ')
-    }))
+    decoders.map((d, i) => {
+      let envSupported: string;
+      if (!d.env) {
+        envSupported = 'all';
+      } else if (Array.isArray(d.env)) {
+        envSupported = d.env.includes(currentEnv) ? 'yes' : 'no';
+      } else {
+        envSupported = d.env === currentEnv ? 'yes' : 'no';
+      }
+
+      return {
+        '#': i + 1,
+        Name: d.name,
+        Priority: d.priority,
+        'Env Supported': envSupported,
+        Methods: [
+          typeof d.decode === 'function' ? 'decode' : '',
+          typeof d.canDecode === 'function' ? 'canDecode' : ''
+        ]
+          .filter(Boolean)
+          .join(', ')
+      };
+    })
   );
 }

@@ -1,5 +1,6 @@
 import type { PixelData } from '@/types.ts';
 import type { ServerInput, ServerOptions } from './types';
+import { resolveDecoderForInput } from '@/shared/decoder.ts';
 
 /**
  * Server-side entry point for the Pixelift library.
@@ -8,12 +9,12 @@ import type { ServerInput, ServerOptions } from './types';
  * @param {ServerOptions?} [options] - Optional configuration settings for the decoding process.
  * @return {Promise<PixelData>} A promise that resolves to the processed pixel data.
  */
-export async function pixelift(
+export async function decode(
   input: ServerInput,
   options?: ServerOptions
 ): Promise<PixelData> {
-  const decoder = await import('./decoders');
-  return await decoder.decode(input, options);
+  const decoder = await resolveDecoderForInput(input);
+  return decoder.decode(input, options);
 }
 
 export type { ServerInput, ServerOptions };

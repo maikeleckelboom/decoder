@@ -1,30 +1,18 @@
 import type { PixelData } from '@/types';
+import type { BrowserInput, BrowserOptions } from '@/browser';
 import { defineDecoder } from '@/shared/decoder';
-import type { BrowserInput } from '@/browser';
+import { isBrowserInput } from '@/browser/decoders/guard.ts';
 
-export type OffscreenCanvasInput = BrowserInput;
-
-export default defineDecoder<OffscreenCanvasInput>({
+export default defineDecoder<BrowserInput>({
   name: 'offscreen-canvas',
-  priority: 10,
-
-  isEnvSupported() {
-    return typeof OffscreenCanvas !== 'undefined' && typeof ImageBitmap !== 'undefined';
+  env: 'browser',
+  priority: 50,
+  autoRegister: true,
+  canDecode(input) {
+    return isBrowserInput(input);
   },
-
-  isInputSupported(input): boolean {
-    return (
-      input instanceof OffscreenCanvas ||
-      input instanceof ImageBitmap ||
-      input instanceof ImageData ||
-      input instanceof HTMLImageElement ||
-      input instanceof HTMLVideoElement ||
-      input instanceof HTMLCanvasElement ||
-      input instanceof SVGElement
-    );
-  },
-
-  async decode(input): Promise<PixelData> {
+  async decode(input: BrowserInput, options?: BrowserOptions): Promise<PixelData> {
+    console.log('Using OffscreenCanvas decoder 🤤');
     return {
       data: new Uint8ClampedArray(),
       width: 0,
