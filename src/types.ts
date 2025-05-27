@@ -8,6 +8,7 @@ export interface PixelData {
 }
 
 export interface CommonDecoderOptions {
+  type?: string;
   decoder?: string;
 }
 
