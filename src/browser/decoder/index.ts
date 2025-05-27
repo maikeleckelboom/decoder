@@ -5,6 +5,8 @@ export async function decode(
   input: BrowserInput,
   options: BrowserOptions = {}
 ): Promise<PixelData> {
+  // Placeholder for browser-specific decoding logic
+
   return {
     data: new Uint8ClampedArray([]),
     width: 0,
