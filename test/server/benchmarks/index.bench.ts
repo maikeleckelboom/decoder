@@ -8,16 +8,14 @@ const MIME_TYPE_MAP: Record<string, string> = {
   png: 'image/png',
   webp: 'image/webp',
   avif: 'image/avif',
-  gif: 'image/gif',
-  heic: 'image/heic',
-  bmp: 'image/bmp'
+  gif: 'image/gif'
 };
 
 const TEST_IMAGE_EXTENSIONS = Object.keys(MIME_TYPE_MAP) as Array<
   keyof typeof MIME_TYPE_MAP
 >;
 
-describe('pixelift browser benchmarks', () => {
+describe('pixelift server benchmarks', () => {
   const fixtures = TEST_IMAGE_EXTENSIONS.map((ext) => ({
     buffer: fs.readFileSync(`test/fixtures/images/pixelift.${ext}`),
     mime: MIME_TYPE_MAP[ext],

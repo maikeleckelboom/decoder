@@ -9,6 +9,7 @@ export interface ProgressInfo {
 }
 
 export interface FetchWithControlsOptions {
+  // onDownloadProgress?: (info: ProgressInfo) => void;
   onProgress?: (info: ProgressInfo) => void;
   progressInterval?: number;
   maxBufferSize?: number;
