@@ -1,9 +1,9 @@
 import type { PixelData } from '@/types';
 import { resolveDecoderForInput } from '@/shared/decoder';
-import type { BrowserInput, BrowserOptions } from '@/browser/types.ts';
+import type { BrowserInput, BrowserOptions } from '@/browser/types';
 
 /**
- * Server-side entry point for the Pixelift library.
+ * Browser-side entry point for the Pixelift library.
  *
  * @param {BrowserInput} input - The input data to be processed by the Pixelift decoders.
  * @param {BrowserOptions?} [options] - Optional configuration settings for the decoding process.

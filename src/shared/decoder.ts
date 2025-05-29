@@ -1,21 +1,24 @@
 import type { PixelData } from '@/types';
 import { getRegisteredDecoders, registerDecoder } from './registry';
-import { getCurrentEnvironment } from '@/shared/env.ts';
 
 export type PixeliftEnvironment = 'browser' | 'server';
 
-export interface Decoder<TSource = unknown, TOptions = unknown, TResult = PixelData> {
+export interface Decoder<
+  TSource = unknown,
+  TOptions = unknown,
+  TResult extends PixelData = PixelData
+> {
   name: string;
   priority: number;
   metadata?: Record<string, any>;
   autoRegister?: boolean;
-  env?: PixeliftEnvironment | PixeliftEnvironment[];
+  environment?: PixeliftEnvironment | PixeliftEnvironment[];
 
   /**
    * Determine if this decoder supports the given input.
    * Input could be MIME type string or raw data.
    */
-  canDecode(input: TSource, type?: string): Promise<boolean> | boolean;
+  canDecode(input: unknown, mime?: string): Promise<boolean> | boolean;
 
   /** Decode the input */
   decode(source: TSource, options?: TOptions): Promise<TResult>;
@@ -33,7 +36,7 @@ export function defineDecoder<
 
 export async function resolveDecoderForInput<TSource>(
   input: TSource,
-  options?: { type?: string; [key: string]: any }
+  options?: { mimeType?: string }
 ): Promise<Decoder<TSource>> {
   const decoders = getRegisteredDecoders() as Decoder<TSource, any, any>[];
 
@@ -55,7 +58,7 @@ export async function resolveDecoderForInput<TSource>(
 
     let canDecodeResult: boolean;
     try {
-      const result = decoder.canDecode(input, options?.type);
+      const result = decoder.canDecode(input, options?.mimeType);
       canDecodeResult = result instanceof Promise ? await result : result;
     } catch (err) {
       failures.push(

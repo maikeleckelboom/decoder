@@ -112,12 +112,12 @@ export function printDecoderRegistry(): void {
   console.table(
     decoders.map((d, i) => {
       let envSupported: string;
-      if (!d.env) {
+      if (!d.environment) {
         envSupported = 'all';
-      } else if (Array.isArray(d.env)) {
-        envSupported = d.env.includes(currentEnv) ? 'yes' : 'no';
+      } else if (Array.isArray(d.environment)) {
+        envSupported = d.environment.includes(currentEnv) ? 'yes' : 'no';
       } else {
-        envSupported = d.env === currentEnv ? 'yes' : 'no';
+        envSupported = d.environment === currentEnv ? 'yes' : 'no';
       }
 
       return {
