@@ -1,6 +1,6 @@
 import type { PixelData } from '@/types.ts';
 import type { ServerInput, ServerOptions } from '@/server/types.ts';
-import { importSharp, type SharpConstructor } from '@/server/decoder/sharp.ts';
+import { importSharp, type Sharp } from '@/server/decoder/sharp.ts';
 import { Readable } from 'node:stream';
 import type sharp from 'sharp';
 
@@ -48,7 +48,7 @@ function configurePipeline(pipeline: sharp.Sharp, _options?: ServerOptions): sha
 // Input handling strategies
 const inputHandlers: Record<
   string,
-  (input: ServerInput, sharp: SharpConstructor) => Promise<sharp.Sharp>
+  (input: ServerInput, sharp: Sharp) => Promise<sharp.Sharp>
 > = {
   buffer: async (input, sharp) => sharp(input as Buffer),
   path: async (input, sharp) => sharp(input as string),

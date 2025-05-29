@@ -1,108 +1,61 @@
-import type * as SharpModule from 'sharp';
+import { default as SharpInstance } from 'sharp';
 
-export type SharpConstructor = typeof SharpModule.default;
+export type Sharp = typeof SharpInstance;
 
-const SHARP_IS_MISSING_ERROR_MESSAGE = `
-❌ Failed to load the required \`sharp\` package for server-side image processing.
+let _sharp: Sharp | null = null;
 
-💡 To fix this, install \`sharp\` with one of the following commands:
-   - \`npm install sharp\`
-   - \`pnpm add sharp\`
-   - \`yarn add sharp\`
-   - \`bun add sharp\`
+export async function importSharp(): Promise<Sharp> {
+  if (_sharp) return _sharp;
 
-⚠️ Pixelift server features depend on \`sharp\`.
-   It looks like it was not installed or could not be found.
-   This may happen if it was skipped during Pixelift installation (it's optional).
-
-📝 Additional troubleshooting:
-   - Ensure Node.js version matches sharp's requirements (v18+ recommended)
-   - Verify build tools for native extensions are installed
-   - Check for conflicting dependencies in your package.json
-`.trim();
-
-const GENERIC_IMPORT_ERROR_MESSAGE = (error: string) =>
-  `
-❌ Unexpected error while loading \`sharp\` module:
-
-${error}
-
-💡 Please check:
-   1. File system permissions
-   2. Network connectivity if using corporate VPN
-   3. Antivirus/firewall settings blocking module installation
-   4. Disk space availability
-`.trim();
-
-export class SharpLoaderError extends Error {
-  readonly cause?: Error;
-
-  constructor(message: string, options: ErrorOptions = {}) {
-    super(message, options);
-    this.name = 'SharpLoaderError';
-    if (options.cause instanceof Error) {
-      this.cause = options.cause;
-    }
-
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, SharpLoaderError);
-    }
+  try {
+    return (_sharp = (await import('sharp')).default);
+  } catch (error) {
+    _sharp = null;
+    const msg = createErrorMessage(error);
+    const err = new Error(msg);
+    err.name = 'SharpLoaderError';
+    if (error instanceof Error) err.cause = error;
+    throw err;
   }
 }
 
-let sharpPromise: Promise<SharpConstructor> | null = null;
+function createErrorMessage(error: unknown): string {
+  if (isMissingError(error)) {
+    return `
+❌ Missing \`sharp\` package (required for server image processing)
 
-/**
- * Dynamically imports and validates the `sharp` module with proper error handling
- * and caching mechanism. Retries failed imports on subsequent calls.
- *
- * @throws {SharpLoaderError} When sharp cannot be loaded, with actionable error messages
- *
- * @example
- * try {
- *   const sharp = await importSharp();
- * } catch (error) {
- *   if (SharpLoaderError.isMissingError(error)) {
- *     // Show installation instructions
- *   }
- * }
- */
-export async function importSharp(): Promise<SharpConstructor> {
-  if (sharpPromise) return sharpPromise;
+💡 Install with:
+   npm install sharp
+   pnpm add sharp
+   yarn add sharp
+   bun add sharp
 
-  sharpPromise = (async () => {
-    try {
-      const sharpModule = await import('sharp');
+⚠️ Pixelift requires \`sharp\` for server features
+   Check installation and Node.js version (v18+ recommended)
+`.trim();
+  }
 
-      return sharpModule.default as SharpConstructor;
-    } catch (error: unknown) {
-      sharpPromise = null;
+  return `
+❌ Unexpected \`sharp\` load error:
 
-      if (isModuleNotFoundError(error)) {
-        throw new SharpLoaderError(SHARP_IS_MISSING_ERROR_MESSAGE, {
-          cause: error instanceof Error ? error : undefined
-        });
-      }
+${error instanceof Error ? error.message : String(error)}
 
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new SharpLoaderError(GENERIC_IMPORT_ERROR_MESSAGE(errorMessage), {
-        cause: error instanceof Error ? error : undefined
-      });
-    }
-  })();
+💡 Common installation issues:
+   1. Node.js version mismatch: Requires v18+
+   2. Missing build tools: Install Python, node-gyp and compiler tools
+   3. Platform architecture mismatch: Try \`npm install --platform=linux --arch=x64 sharp\`
+   4. Global libvips conflict: Set \`SHARP_IGNORE_GLOBAL_LIBVIPS=1\`
+   5. Permission issues: Use \`--unsafe-perm\` with npm
 
-  sharpPromise.catch(() => {
-    sharpPromise = null;
-  });
-
-  return sharpPromise;
+📖 See troubleshooting guide: https://sharp.pixelplumbing.com/install
+`.trim();
 }
 
-function isModuleNotFoundError(error: unknown): boolean {
+function isMissingError(error: unknown): boolean {
   return (
     error instanceof Error &&
     'code' in error &&
     error.code === 'MODULE_NOT_FOUND' &&
-    error.message.includes('sharp')
+    /sharp/.test(error.message)
   );
 }

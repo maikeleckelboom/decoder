@@ -3,7 +3,6 @@ import type { FetchWithControlsOptions } from '@/browser/utils/fetch.ts';
 
 export type BrowserInput =
   | string
-  | Response
   | ReadableStream
   | BufferSource
   | SVGElement
